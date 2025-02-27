@@ -1,25 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Take a Photo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div class="container">
+        <h1>Prendre une photo avec votre caméra</h1>
 
-    <h1>Take a Photo with Your Camera</h1>
+        <video id="video" width="640" height="480" autoplay></video>
+        <canvas id="canvas" style="display: none;"></canvas>
+        <br>
+        <button id="captureUpload">Acquérir</button>
 
-    <video id="video" width="640" height="480" autoplay></video>
-    <canvas id="canvas" style="display: none;"></canvas>
-    <br>
-    <button id="capture">Capture</button>
-
-    <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="hidden" name="latitude" id="latitude">
-        <input type="hidden" name="longitude" id="longitude">
-        <input type="file" id="fileInput" name="file" style="display: none;">
-        <button type="submit">Upload Photo</button>
-    </form>
+        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" style="display: none;">
+            <input type="hidden" name="latitude" id="latitude">
+            <input type="hidden" name="longitude" id="longitude">
+            <input type="file" id="fileInput" name="file" style="display: none;">
+            <button type="submit" id="submitBtn">Upload Photo</button>
+        </form>
+    </div>
 
     <script>
         // Accéder à la caméra
@@ -31,8 +33,8 @@
                 console.log("Error accessing webcam: " + err);
             });
 
-        // Capture d'une image
-        document.getElementById('capture').addEventListener('click', function () {
+        // Capture d'une image et soumission du formulaire
+        document.getElementById('captureUpload').addEventListener('click', function () {
             var video = document.getElementById('video');
             var canvas = document.getElementById('canvas');
             var ctx = canvas.getContext('2d');
@@ -48,6 +50,9 @@
                 var dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
+
+                // Soumettre le formulaire après la capture
+                document.getElementById('uploadForm').submit();
             });
         });
 
@@ -65,6 +70,5 @@
             document.getElementById('longitude').value = position.coords.longitude;
         });
     </script>
-
 </body>
 </html>

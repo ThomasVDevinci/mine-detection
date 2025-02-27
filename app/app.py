@@ -2,17 +2,50 @@ from flask import Flask, request, render_template
 from ultralytics import YOLO
 import cv2
 import folium
+import json
 from io import BytesIO
 import base64
 from PIL import Image
 import numpy as np
 import pandas as pd
-from folium import plugins
+from collections import defaultdict
 
 app = Flask(__name__)
 
 # Charger ton modèle YOLOv8
 model = YOLO('../model/best.pt')
+
+# Fonction pour charger les entrées depuis le fichier entries.json
+def load_entries():
+    try:
+        with open('entries.json', 'r') as f:
+            entries = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        entries = []
+    return entries
+
+# Fonction pour sauvegarder les entrées dans entries.json
+def save_entries(entries):
+    with open('entries.json', 'w') as f:
+        json.dump(entries, f)
+
+# Fonction pour ajouter une entrée dans entries.json
+def add_entry(entry):
+    entries = load_entries()  # Charger les anciennes entrées
+
+    # Chercher si une entrée avec les mêmes coordonnées existe déjà
+    found = False
+    for existing_entry in entries:
+        if existing_entry['latitude'] == entry['latitude'] and existing_entry['longitude'] == entry['longitude']:
+            existing_entry['object_classes'][entry['object_class']] = existing_entry['object_classes'].get(entry['object_class'], 0) + 1
+            found = True
+            break
+
+    if not found:
+        entry['object_classes'] = {entry['object_class']: 1}
+        entries.append(entry)
+
+    save_entries(entries)  # Sauvegarder les nouvelles entrées dans le fichier
 
 @app.route('/')
 def index():
@@ -65,46 +98,44 @@ def upload():
     # Filtrer les détections par confiance
     detections = df[df['confidence'] > 0.5]  # Seulement les détections avec une confiance > 0.5
 
-    # Supposons que l'utilisateur fournisse aussi les métadonnées de localisation
-    # Vérification des coordonnées
+    # Supposons que l'utilisateur fournisse aussi les coordonnées
     lat = float(request.form.get('latitude', 0))
     lon = float(request.form.get('longitude', 0))
 
     if lat == 0 or lon == 0:
         return 'Coordinates not provided or invalid', 400
 
+    # Ajouter les nouvelles entrées dans le fichier entries.json
+    for _, detection in detections.iterrows():
+        entry = {
+            'latitude': lat,
+            'longitude': lon,
+            'object_class': detection['name']
+        }
+        add_entry(entry)
+
     # Créer une carte Folium centrée sur la position
     map_ = folium.Map(location=[lat, lon], zoom_start=12)
 
-    # Ajouter un marqueur pour chaque objet détecté
-    for _, detection in detections.iterrows():
-        label = detection['name']
-        x_center, y_center = detection['x'], detection['y']
-        # Conversion simplifiée des coordonnées x et y en coordonnées GPS
-        marker_lat = lat + (y_center - 240) * 0.0001  # Calculer un ajustement simplifié pour la latitude
-        marker_lon = lon + (x_center - 320) * 0.0001  # Calculer un ajustement simplifié pour la longitude
+    # Charger toutes les entrées depuis le fichier pour les afficher sur la carte
+    entries = load_entries()
 
-        # Créer un icône personnalisé pour le marqueur avec une taille agrandie
+    # Regrouper les entrées par coordonnées (latitude, longitude)
+    grouped_entries = defaultdict(lambda: defaultdict(int))
+    for entry in entries:
+        grouped_entries[(entry['latitude'], entry['longitude'])].update(entry['object_classes'])
+
+    # Ajouter des marqueurs sur la carte
+    for (lat, lon), object_classes in grouped_entries.items():
+        label = ', '.join([f"{cls}: {count}" for cls, count in object_classes.items()])
         icon = folium.Icon(icon='cloud', icon_size=(35, 35), color='blue')
-
-        # Ajouter le marqueur avec l'info de classe dans l'infobulle
-        folium.Marker(
-            [marker_lat, marker_lon], 
-            popup=f"Class: {label}", 
-            icon=icon
-        ).add_to(map_)
+        folium.Marker([lat, lon], popup=label, icon=icon).add_to(map_)
 
     # Sauvegarder la carte dans un fichier HTML temporaire
     map_html = 'static/map.html'
     map_.save(map_html)
 
-    # Convertir l'image en base64 pour l'afficher dans la page HTML
-    buffered = BytesIO()
-    img = Image.fromarray(img)
-    img.save(buffered, format="JPEG")
-    img_base64 = base64.b64encode(buffered.getvalue()).decode()
-
-    return render_template('result.html', map_html=map_html, latitude=lat, longitude=lon, img_base64=img_base64)
+    return render_template('result.html', map_html=map_html, latitude=lat, longitude=lon)
 
 if __name__ == '__main__':
     app.run(debug=True)
