@@ -1,0 +1,13 @@
+train: C:/Users/tomva/Downloads/bomb recog.v2i.yolov8/train/images
+val: C:/Users/tomva/Downloads/bomb recog.v2i.yolov8/valid/images
+test: C:/Users/tomva/Downloads/bomb recog.v2i.yolov8/test/images
+
+nc: 8
+names: ['M14', 'M21', 'M2A1', 'MOH-50', 'OZM-72', 'PMN2', 'POMZ2', 'TM-46']
+
+roboflow:
+  workspace: xun-hong-zrv5c
+  project: bomb-recog
+  version: 2
+  license: Public Domain
+  url: https://universe.roboflow.com/xun-hong-zrv5c/bomb-recog/dataset/2
