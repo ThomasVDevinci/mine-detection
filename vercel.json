@@ -3,7 +3,7 @@
     {
       "src": "app/app.py",
       "use": "@vercel/python",
-      "config": { "runtime": "python@3.11.5" }
+      "config": { "runtime": "python@3.11" }
     }
   ],
   "routes": [
